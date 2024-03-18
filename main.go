@@ -148,9 +148,7 @@ func startProxyServer(targetHost, port string) {
 
 	proxyMux := http.NewServeMux()
 	proxyMux.HandleFunc("/dev-html-proxy-ws", handleWebSocket)
-	proxyMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		proxy.ServeHTTP(w, r)
-	})
+	proxyMux.HandleFunc("/", proxy.ServeHTTP)
 
 	log.Fatal(http.ListenAndServe(":"+port, proxyMux))
 }

@@ -75,23 +75,16 @@ func removeClient(ws *websocket.Conn) {
 }
 
 func broadcastMessage(message string) {
+	slog.Debug("Broadcasting", "message", message)
 	clientsMu.Lock()
-	clientsCopy := append([]*websocket.Conn{}, clients...)
-	clientsMu.Unlock()
-
-	var wg sync.WaitGroup
-	for _, client := range clientsCopy {
-		wg.Add(1)
-		go func(client *websocket.Conn) {
-			defer wg.Done()
-			if err := client.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
-				slog.Error("WebSocket send error: %v", err)
-				client.Close()
-				removeClient(client)
-			}
-		}(client)
+	for _, client := range clients {
+		if err := client.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+			slog.Error("WebSocket send error: %v", err)
+			client.Close()
+			removeClient(client)
+		}
 	}
-	wg.Wait()
+	clientsMu.Unlock()
 }
 
 const jsCode = `
@@ -151,9 +144,10 @@ func startProxyServer(targetHost, port string) {
 		res.Header.Set("Content-Length", fmt.Sprint(len(modifiedBody)))
 		return nil
 	}
+	proxy.Transport = &retryRoundTripper{http.DefaultTransport}
 
 	proxyMux := http.NewServeMux()
-	proxyMux.Handle("/dev-html-proxy-ws", http.HandlerFunc(handleWebSocket))
+	proxyMux.HandleFunc("/dev-html-proxy-ws", handleWebSocket)
 	proxyMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 	})

@@ -130,6 +130,10 @@ func startProxyServer(targetHost, port string) {
 
 	proxy := httputil.NewSingleHostReverseProxy(targetURL)
 	proxy.ModifyResponse = func(res *http.Response) error {
+		if !strings.Contains(res.Header.Get("Content-Type"), "text/html") {
+			slog.Debug("Not modifying response for a non-HTML resource")
+			return nil
+		}
 		slog.Debug("Modifying response")
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
